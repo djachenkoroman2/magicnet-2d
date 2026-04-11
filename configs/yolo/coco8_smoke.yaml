@@ -1,0 +1,19 @@
+# Default Ultralytics YOLO smoke-test config for the local COCO8 dataset.
+model: yolov8n.pt
+data: configs/yolo/coco8_ultralytics.yaml
+epochs: 5
+imgsz: 640
+batch: 4
+device: cpu
+workers: 0
+project: log/yolo
+name: coco8_smoke
+exist_ok: true
+pretrained: true
+seed: 42
+plots: true
+save: true
+patience: 20
+notes: |
+  This config is intentionally small and conservative.
+  It is meant for a quick end-to-end smoke test of training, TensorBoard logging, checkpoints, and inference.

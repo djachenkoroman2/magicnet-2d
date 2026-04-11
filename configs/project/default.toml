@@ -1,0 +1,45 @@
+[project]
+name = "magicnet-2d"
+run_name = "faster_rcnn_r50_demo"
+
+[paths]
+data_root = "data/coco"
+log_root = "log"
+checkpoint_root = "checkpoints"
+output_root = "outputs"
+
+[mmdet]
+config = "mmdet::faster_rcnn/faster-rcnn_r50_fpn_1x_coco.py"
+checkpoint = ""
+
+[dataset]
+type = "CocoDataset"
+classes = ["object"]
+
+[dataset.train]
+ann_file = "annotations/instances_train.json"
+img_prefix = "train/"
+
+[dataset.val]
+ann_file = "annotations/instances_val.json"
+img_prefix = "val/"
+
+[dataset.test]
+ann_file = "annotations/instances_val.json"
+img_prefix = "val/"
+
+[train]
+seed = 42
+validate = true
+amp = false
+max_epochs = 12
+checkpoint_interval = 1
+max_keep_checkpoints = 3
+logger_interval = 50
+resume = ""
+
+[inference]
+device = "auto"
+score_threshold = 0.3
+batch_size = 1
+output_subdir = "inference"
