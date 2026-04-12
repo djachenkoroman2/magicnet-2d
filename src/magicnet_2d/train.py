@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Sequence
 
 from .config import load_project_config, missing_training_paths, override_config
-from .mmdet_support import build_runtime_config
+from .mmdet_support import MissingMMDetectionRuntimeError, build_runtime_config
 from .utils import ensure_directories
 
 
@@ -60,7 +60,14 @@ def run_from_args(args: argparse.Namespace) -> int:
     if missing_paths and not args.dry_run:
         raise FileNotFoundError(_format_missing_paths(missing_paths))
 
-    cfg, run_dirs, source_config_path = build_runtime_config(project_config)
+    try:
+        cfg, run_dirs, source_config_path = build_runtime_config(project_config)
+    except MissingMMDetectionRuntimeError as exc:
+        if missing_paths and args.dry_run:
+            print(_format_missing_paths(missing_paths))
+            print()
+        print(exc)
+        return 1
     ensure_directories(
         [
             run_dirs.run_dir,

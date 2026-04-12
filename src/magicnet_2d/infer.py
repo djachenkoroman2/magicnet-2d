@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Sequence
 
 from .config import load_project_config, override_config
-from .mmdet_support import build_runtime_config
+from .mmdet_support import MissingMMDetectionRuntimeError, build_runtime_config
 from .utils import choose_device, ensure_directories, list_image_inputs, to_serializable
 
 
@@ -76,7 +76,11 @@ def run_from_args(args: argparse.Namespace) -> int:
     input_path = Path(args.input).resolve()
     input_items = list_image_inputs(input_path)
 
-    cfg, run_dirs, _ = build_runtime_config(project_config, checkpoint_override=checkpoint_path)
+    try:
+        cfg, run_dirs, _ = build_runtime_config(project_config, checkpoint_override=checkpoint_path)
+    except MissingMMDetectionRuntimeError as exc:
+        print(exc)
+        return 1
     output_dir = Path(args.output_dir).resolve() if args.output_dir else run_dirs.inference_output_dir.resolve()
     ensure_directories([output_dir])
 

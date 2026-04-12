@@ -9,7 +9,9 @@ from .yolo_support import (
     copy_weight_artifacts,
     ensure_directories,
     find_project_root,
+    materialize_dataset_yaml,
     maybe_resolve_model,
+    prepare_ultralytics_environment,
     resolve_candidate_path,
     write_summary,
 )
@@ -112,15 +114,30 @@ def run_from_args(args: argparse.Namespace) -> int:
     dataset_config_path = resolve_candidate_path(config_path.parent, str(train_config["data"]), project_root)
     if not dataset_config_path.exists():
         raise FileNotFoundError(f"Dataset YAML does not exist: {dataset_config_path}")
+    dataset_config = _load_yaml(dataset_config_path)
+    dataset_path_value = dataset_config.get("path")
+    if not isinstance(dataset_path_value, str) or not dataset_path_value.strip():
+        raise ValueError(f"Dataset YAML must contain a non-empty `path`: {dataset_config_path}")
 
     run_name = str(train_config["name"])
     run_paths = build_yolo_run_paths(project_root, run_name)
-    ensure_directories([run_paths.log_project_dir, run_paths.checkpoint_dir, run_paths.output_project_dir])
+    ensure_directories([run_paths.log_project_dir, run_paths.run_dir, run_paths.checkpoint_dir, run_paths.output_project_dir])
+
+    dataset_root = resolve_candidate_path(dataset_config_path.parent, dataset_path_value, project_root)
+    if not dataset_root.exists():
+        raise FileNotFoundError(f"Dataset root does not exist: {dataset_root}")
+
+    resolved_dataset_yaml = materialize_dataset_yaml(
+        dataset_config_path,
+        run_paths.run_dir / "resolved_dataset.yaml",
+        dataset_root,
+    )
 
     resolved_model = maybe_resolve_model(str(train_config["model"]), project_root)
     dry_run_lines = [
         f"YOLO config: {config_path}",
         f"Dataset YAML: {dataset_config_path}",
+        f"Resolved dataset YAML: {resolved_dataset_yaml}",
         f"Model: {resolved_model}",
         f"Run dir: {run_paths.run_dir}",
         f"Checkpoint dir: {run_paths.checkpoint_dir}",
@@ -131,15 +148,23 @@ def run_from_args(args: argparse.Namespace) -> int:
         print("\n".join(dry_run_lines))
         return 0
 
+    prepare_ultralytics_environment(project_root)
     YOLO, settings = _require_training_runtime()
     try:
-        settings.update({"tensorboard": True})
+        settings.update(
+            {
+                "tensorboard": True,
+                "datasets_dir": str(project_root / "data"),
+                "runs_dir": str(project_root / "log" / "yolo"),
+                "weights_dir": str(project_root / "checkpoints" / "yolo"),
+            }
+        )
     except Exception:
         pass
 
     model = YOLO(resolved_model)
     train_kwargs = dict(train_config)
-    train_kwargs["data"] = str(dataset_config_path)
+    train_kwargs["data"] = str(resolved_dataset_yaml)
     train_kwargs["model"] = resolved_model
     train_kwargs["project"] = str(run_paths.log_project_dir)
     train_kwargs["name"] = run_name
@@ -156,6 +181,7 @@ def run_from_args(args: argparse.Namespace) -> int:
     summary = {
         "train_config": str(config_path),
         "dataset_yaml": str(dataset_config_path),
+        "resolved_dataset_yaml": str(resolved_dataset_yaml),
         "model": resolved_model,
         "run_dir": str(run_paths.run_dir),
         "tensorboard_dir": str(run_paths.run_dir),

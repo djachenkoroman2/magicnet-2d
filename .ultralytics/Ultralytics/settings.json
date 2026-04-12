@@ -1,0 +1,21 @@
+{
+  "settings_version": "0.0.6",
+  "datasets_dir": "/home/researcher/dev/magicnet-2d/data",
+  "weights_dir": "/home/researcher/dev/magicnet-2d/checkpoints/yolo",
+  "runs_dir": "/home/researcher/dev/magicnet-2d/log/yolo",
+  "uuid": "ff1042bf80ea62134d9856e64ca1d04700e25f153692801d50d5d692e0ea53e5",
+  "sync": true,
+  "api_key": "",
+  "openai_api_key": "",
+  "clearml": true,
+  "comet": true,
+  "dvc": true,
+  "hub": true,
+  "mlflow": true,
+  "neptune": true,
+  "raytune": true,
+  "tensorboard": true,
+  "wandb": false,
+  "vscode_msg": true,
+  "openvino_msg": true
+}

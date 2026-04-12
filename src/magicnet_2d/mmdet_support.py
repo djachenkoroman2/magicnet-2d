@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from importlib.util import find_spec
 from pathlib import Path
 from typing import Any
 
@@ -7,22 +8,64 @@ from .config import ProjectConfig
 from .utils import RunDirectories, build_run_directories
 
 
-def _missing_runtime_message() -> str:
-    return (
-        "MMDetection runtime is not installed. "
+class MissingMMDetectionRuntimeError(RuntimeError):
+    """Raised when MMDetection optional runtime packages are unavailable."""
+
+
+def _missing_runtime_packages() -> tuple[str, ...]:
+    packages = ("mmengine", "mmdet")
+    return tuple(package for package in packages if find_spec(package) is None)
+
+
+def _missing_runtime_message(config_ref: str | None = None) -> str:
+    lines = ["MMDetection runtime is not installed."]
+
+    missing_packages = _missing_runtime_packages()
+    if missing_packages:
+        missing = ", ".join(f"`{package}`" for package in missing_packages)
+        lines.append(f"Missing Python packages: {missing}.")
+
+    if config_ref and config_ref.startswith("mmdet::") and "mmdet" in missing_packages:
+        lines.append(
+            f"The config reference `{config_ref}` points into the installed MMDetection package, "
+            "so `mmdet` must be available even for `--dry-run`."
+        )
+
+    lines.append(
         "Run `python scripts/check_env.py check` to inspect the environment and "
-        "`python scripts/install_system_deps.py install --execute` or `uv sync --extra cpu --extra dev` "
+        "`python scripts/install_system_deps.py install --execute` or "
+        "`uv sync --extra cpu --extra dev` followed by `uv run mim install mmcv==2.1.0` "
         "to install a compatible runtime."
+    )
+    lines.append(
+        "If you already ran `uv sync`, the current `python` is likely outside the project's `.venv`. "
+        "Re-run the command with `uv run ...` or activate `.venv` first."
+    )
+    return "\n".join(lines)
+
+
+def _compiled_mmcv_runtime_message() -> str:
+    return "\n".join(
+        [
+            "MMDetection runtime is installed, but the compiled `mmcv` ops are unavailable.",
+            "This usually means `mmcv-lite` is installed or the current `mmcv` wheel does not match the active PyTorch/CUDA build.",
+            "Reinstall the recommended runtime profile, then run `uv run mim install mmcv==2.1.0` to fetch a compatible compiled wheel.",
+        ]
     )
 
 
-def _require_mmdet_training_runtime() -> tuple[Any, Any]:
+def _require_mmdet_training_runtime(config_ref: str | None = None) -> tuple[Any, Any]:
     try:
         from mmengine.config import Config
         from mmdet.utils import register_all_modules
     except ImportError as exc:  # pragma: no cover - exercised only with real runtime
-        raise RuntimeError(_missing_runtime_message()) from exc
-    register_all_modules(init_default_scope=False)
+        raise MissingMMDetectionRuntimeError(_missing_runtime_message(config_ref)) from exc
+    try:
+        register_all_modules(init_default_scope=False)
+    except ModuleNotFoundError as exc:  # pragma: no cover - exercised only with real runtime
+        if exc.name == "mmcv._ext":
+            raise MissingMMDetectionRuntimeError(_compiled_mmcv_runtime_message()) from exc
+        raise
     return Config, register_all_modules
 
 
@@ -32,7 +75,7 @@ def resolve_mmdet_config(config_ref: str, project_root: Path) -> Path:
         try:
             import mmdet
         except ImportError as exc:  # pragma: no cover - exercised only with real runtime
-            raise RuntimeError(_missing_runtime_message()) from exc
+            raise MissingMMDetectionRuntimeError(_missing_runtime_message(config_ref)) from exc
 
         package_root = Path(mmdet.__file__).resolve().parent
         candidates = [
@@ -137,16 +180,14 @@ def build_runtime_config(
     mmdet_config_override: str | None = None,
     checkpoint_override: Path | None = None,
 ) -> tuple[Any, RunDirectories, Path]:
-    Config, _ = _require_mmdet_training_runtime()
+    config_ref = mmdet_config_override or project_config.mmdet.config_ref
     run_dirs = build_run_directories(
         project_config.paths,
         project_config.project.run_name,
         project_config.inference.output_subdir,
     )
-    config_path = resolve_mmdet_config(
-        mmdet_config_override or project_config.mmdet.config_ref,
-        project_config.paths.project_root,
-    )
+    config_path = resolve_mmdet_config(config_ref, project_config.paths.project_root)
+    Config, _ = _require_mmdet_training_runtime(config_ref)
     cfg = Config.fromfile(str(config_path))
 
     cfg.default_scope = "mmdet"

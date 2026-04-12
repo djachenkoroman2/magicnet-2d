@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
+import os
 from pathlib import Path
 import shutil
 from typing import Any
@@ -142,6 +143,36 @@ def build_yolo_run_paths(project_root: Path, run_name: str) -> YOLORunPaths:
 def ensure_directories(paths: list[Path]) -> None:
     for path in paths:
         path.mkdir(parents=True, exist_ok=True)
+
+
+def prepare_ultralytics_environment(project_root: Path) -> Path:
+    config_root = project_root / ".ultralytics"
+    matplotlib_root = project_root / ".matplotlib"
+    config_root.mkdir(parents=True, exist_ok=True)
+    matplotlib_root.mkdir(parents=True, exist_ok=True)
+    os.environ.setdefault("YOLO_CONFIG_DIR", str(config_root))
+    os.environ.setdefault("MPLCONFIGDIR", str(matplotlib_root))
+    return config_root
+
+
+def materialize_dataset_yaml(source_yaml: Path, destination_yaml: Path, dataset_root: Path) -> Path:
+    try:
+        import yaml
+    except ImportError as exc:  # pragma: no cover - depends on runtime
+        raise RuntimeError("PyYAML is required to prepare the YOLO dataset config.") from exc
+
+    payload = yaml.safe_load(source_yaml.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"Dataset YAML must contain a mapping: {source_yaml}")
+
+    payload = dict(payload)
+    payload["path"] = str(dataset_root.resolve())
+    destination_yaml.parent.mkdir(parents=True, exist_ok=True)
+    destination_yaml.write_text(
+        yaml.safe_dump(payload, sort_keys=False, allow_unicode=True),
+        encoding="utf-8",
+    )
+    return destination_yaml
 
 
 def copy_weight_artifacts(source_weights_dir: Path, checkpoint_dir: Path) -> list[Path]:

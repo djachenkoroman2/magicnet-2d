@@ -1,7 +1,6 @@
 {
   "dataset": "Ultralytics COCO8",
   "download_url": "https://github.com/ultralytics/assets/releases/download/v0.0.0/coco8.zip",
-  "downloaded_on": "2026-04-11",
   "zip_sha256": "54c67fe9ef88313e021ec0e92b73c200167bb0a86633e8df8658d832cca828c9",
-  "local_path": "data/yolo/coco8_ultralytics"
+  "local_path": "/home/researcher/dev/magicnet-2d/data/yolo/coco8_ultralytics"
 }

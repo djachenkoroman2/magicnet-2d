@@ -154,8 +154,14 @@ def build_install_plan(snapshot: EnvironmentSnapshot, recommendation: RuntimeRec
     if profile.name == "cpu":
         steps.append(
             InstallStep(
-                description="Sync the project with CPU-only dependencies and dev tools.",
+                description="Sync the project with the recommended CPU-compatible Python dependencies and dev tools.",
                 command=("uv", "sync", "--extra", "cpu", "--extra", "dev"),
+            )
+        )
+        steps.append(
+            InstallStep(
+                description=f"Install the compiled {profile.mmcv_package} wheel with OpenMIM.",
+                command=("uv", "run", "mim", "install", f"mmcv=={profile.mmcv_version}"),
             )
         )
         return steps

@@ -4,7 +4,7 @@ import argparse
 from pathlib import Path
 from typing import Any, Sequence
 
-from .yolo_support import ensure_directories, find_project_root
+from .yolo_support import ensure_directories, find_project_root, prepare_ultralytics_environment
 
 
 def _require_inference_runtime() -> Any:
@@ -67,6 +67,7 @@ def run_from_args(args: argparse.Namespace) -> int:
 
     ensure_directories([output_dir.parent])
 
+    prepare_ultralytics_environment(project_root)
     YOLO = _require_inference_runtime()
     model = YOLO(str(weights_path))
     model.predict(
