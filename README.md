@@ -197,6 +197,18 @@ Smoke-test конфиг использует `yolov8n.yaml` и обучает м
 uv run python scripts/train.py --config configs/project/default.toml --dry-run
 ```
 
+Для `RetinaNet` на локальном `data/coco`:
+
+```bash
+uv run python scripts/train.py --config configs/project/retinanet_r50_fpn_1x_coco.toml --dry-run
+```
+
+Для `YOLOv3` через MMDetection на локальном `data/tvdd`:
+
+```bash
+uv run python scripts/train.py --config configs/project/yolov3_d53_tvdd_mmdet.toml --dry-run
+```
+
 Dry-run:
 
 - валидирует пути к датасету;
@@ -207,6 +219,18 @@ Dry-run:
 
 ```bash
 uv run python scripts/train.py --config configs/project/default.toml
+```
+
+Полный запуск `RetinaNet`:
+
+```bash
+uv run python scripts/train.py --config configs/project/retinanet_r50_fpn_1x_coco.toml
+```
+
+Полный запуск `YOLOv3` на `TVDD` через MMDetection:
+
+```bash
+uv run python scripts/train.py --config configs/project/yolov3_d53_tvdd_mmdet.toml
 ```
 
 Если GPU доступен и CUDA-окружение установлено корректно, MMDetection будет использовать его через обычный PyTorch runtime. Для выбора конкретной карты удобно использовать `CUDA_VISIBLE_DEVICES`:

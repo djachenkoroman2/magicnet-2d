@@ -1,0 +1,126 @@
+[project]
+name = "magicnet-2d"
+run_name = "retinanet_r50_fpn_1x_coco"
+
+[paths]
+data_root = "data/coco"
+log_root = "log"
+checkpoint_root = "checkpoints"
+output_root = "outputs"
+
+[mmdet]
+config = "mmdet::retinanet/retinanet_r50_fpn_1x_coco.py"
+checkpoint = ""
+
+[dataset]
+type = "CocoDataset"
+classes = [
+  "person",
+  "bicycle",
+  "car",
+  "motorcycle",
+  "airplane",
+  "bus",
+  "train",
+  "truck",
+  "boat",
+  "traffic light",
+  "fire hydrant",
+  "stop sign",
+  "parking meter",
+  "bench",
+  "bird",
+  "cat",
+  "dog",
+  "horse",
+  "sheep",
+  "cow",
+  "elephant",
+  "bear",
+  "zebra",
+  "giraffe",
+  "backpack",
+  "umbrella",
+  "handbag",
+  "tie",
+  "suitcase",
+  "frisbee",
+  "skis",
+  "snowboard",
+  "sports ball",
+  "kite",
+  "baseball bat",
+  "baseball glove",
+  "skateboard",
+  "surfboard",
+  "tennis racket",
+  "bottle",
+  "wine glass",
+  "cup",
+  "fork",
+  "knife",
+  "spoon",
+  "bowl",
+  "banana",
+  "apple",
+  "sandwich",
+  "orange",
+  "broccoli",
+  "carrot",
+  "hot dog",
+  "pizza",
+  "donut",
+  "cake",
+  "chair",
+  "couch",
+  "potted plant",
+  "bed",
+  "dining table",
+  "toilet",
+  "tv",
+  "laptop",
+  "mouse",
+  "remote",
+  "keyboard",
+  "cell phone",
+  "microwave",
+  "oven",
+  "toaster",
+  "sink",
+  "refrigerator",
+  "book",
+  "clock",
+  "vase",
+  "scissors",
+  "teddy bear",
+  "hair drier",
+  "toothbrush",
+]
+
+[dataset.train]
+ann_file = "annotations/instances_train2014.json"
+img_prefix = "train2014/"
+
+[dataset.val]
+ann_file = "annotations/instances_val2014.json"
+img_prefix = "val2014/"
+
+[dataset.test]
+ann_file = "annotations/instances_val2014.json"
+img_prefix = "val2014/"
+
+[train]
+seed = 42
+validate = true
+amp = false
+max_epochs = 12
+checkpoint_interval = 1
+max_keep_checkpoints = 3
+logger_interval = 50
+resume = ""
+
+[inference]
+device = "auto"
+score_threshold = 0.3
+batch_size = 1
+output_subdir = "inference"

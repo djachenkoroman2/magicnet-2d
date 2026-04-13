@@ -1,0 +1,78 @@
+# MMDetection config for training YOLOv3 on the local TVDD dataset.
+# TVDD currently ships in YOLO txt format, so this config uses the project's
+# local `YOLOTxtDataset` adapter instead of COCO json annotations.
+#
+# Validation is disabled because the stock evaluator in this project expects
+# COCO-style annotation files.
+
+[project]
+name = "magicnet-2d"
+run_name = "yolov3_d53_tvdd_mmdet"
+
+[paths]
+data_root = "data/tvdd"
+log_root = "log"
+checkpoint_root = "checkpoints"
+output_root = "outputs"
+
+[mmdet]
+config = "mmdet::yolo/yolov3_d53_8xb8-ms-608-273e_coco.py"
+checkpoint = ""
+disable_pretrained = true
+
+[dataset]
+type = "YOLOTxtDataset"
+classes = [
+  "person",
+  "car",
+  "truck",
+  "bus",
+  "motorcycle",
+  "red light",
+  "green light",
+  "stop sign",
+  "no entry",
+  "no overtaking",
+  "speed limit 20",
+  "speed limit 30",
+  "speed limit 40",
+  "speed limit 50",
+  "speed limit 60",
+  "speed limit 70",
+  "speed limit 80",
+  "speed limit 100",
+  "speed limit 120",
+  "no left turn",
+  "no right turn",
+  "no stopping",
+  "no u-turn",
+]
+
+[dataset.train]
+ann_file = "labels/train"
+img_prefix = "images/train"
+
+[dataset.val]
+ann_file = "labels/val"
+img_prefix = "images/val"
+
+[dataset.test]
+ann_file = "labels/val"
+img_prefix = "images/val"
+
+[train]
+seed = 42
+validate = false
+amp = false
+max_epochs = 100
+num_workers = 0
+checkpoint_interval = 5
+max_keep_checkpoints = 3
+logger_interval = 50
+resume = ""
+
+[inference]
+device = "auto"
+score_threshold = 0.3
+batch_size = 1
+output_subdir = "inference"

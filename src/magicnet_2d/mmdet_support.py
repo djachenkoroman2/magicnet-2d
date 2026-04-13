@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from importlib.util import find_spec
+import os
 from pathlib import Path
 from typing import Any
 
@@ -67,6 +68,20 @@ def _require_mmdet_training_runtime(config_ref: str | None = None) -> tuple[Any,
             raise MissingMMDetectionRuntimeError(_compiled_mmcv_runtime_message()) from exc
         raise
     return Config, register_all_modules
+
+
+def _register_local_mmdet_modules() -> None:
+    # Import custom project datasets so they are available in MMDetection's registry.
+    from . import mmdet_datasets  # noqa: F401
+
+
+def _prepare_mmdet_environment(project_root: Path) -> None:
+    mmengine_home = project_root / ".mmengine"
+    matplotlib_root = project_root / ".matplotlib"
+    mmengine_home.mkdir(parents=True, exist_ok=True)
+    matplotlib_root.mkdir(parents=True, exist_ok=True)
+    os.environ.setdefault("MMENGINE_HOME", str(mmengine_home))
+    os.environ.setdefault("MPLCONFIGDIR", str(matplotlib_root))
 
 
 def resolve_mmdet_config(config_ref: str, project_root: Path) -> Path:
@@ -141,6 +156,25 @@ def _patch_num_classes(model_node: Any, num_classes: int) -> None:
             node["num_classes"] = num_classes
 
 
+def _disable_pretrained_init(model_node: Any) -> None:
+    for node in _walk(model_node):
+        if not isinstance(node, dict):
+            continue
+        init_cfg = node.get("init_cfg")
+        if isinstance(init_cfg, dict) and init_cfg.get("type") == "Pretrained":
+            node["init_cfg"] = None
+        if "pretrained" in node and node.get("pretrained") not in (None, False):
+            node["pretrained"] = None
+
+
+def _patch_dataloader_workers(dataloader_node: Any, num_workers: int | None) -> None:
+    if not isinstance(dataloader_node, dict) or num_workers is None:
+        return
+    dataloader_node["num_workers"] = num_workers
+    if num_workers == 0:
+        dataloader_node["persistent_workers"] = False
+
+
 def _configure_hooks(cfg: Any, config: ProjectConfig, run_dirs: RunDirectories) -> None:
     default_hooks = dict(cfg.get("default_hooks", {}))
 
@@ -186,8 +220,10 @@ def build_runtime_config(
         project_config.project.run_name,
         project_config.inference.output_subdir,
     )
+    _prepare_mmdet_environment(project_config.paths.project_root)
     config_path = resolve_mmdet_config(config_ref, project_config.paths.project_root)
     Config, _ = _require_mmdet_training_runtime(config_ref)
+    _register_local_mmdet_modules()
     cfg = Config.fromfile(str(config_path))
 
     cfg.default_scope = "mmdet"
@@ -201,6 +237,7 @@ def build_runtime_config(
         cfg.train_cfg = train_cfg
 
     if not project_config.train.validate:
+        cfg.val_dataloader = None
         cfg.val_cfg = None
         cfg.val_evaluator = None
 
@@ -213,8 +250,13 @@ def build_runtime_config(
     _patch_dataset_nodes(cfg.get("train_dataloader"), project_config, "train")
     _patch_dataset_nodes(cfg.get("val_dataloader"), project_config, "val")
     _patch_dataset_nodes(cfg.get("test_dataloader"), project_config, "test")
+    _patch_dataloader_workers(cfg.get("train_dataloader"), project_config.train.num_workers)
+    _patch_dataloader_workers(cfg.get("val_dataloader"), project_config.train.num_workers)
+    _patch_dataloader_workers(cfg.get("test_dataloader"), project_config.train.num_workers)
     _patch_evaluator(cfg.get("val_evaluator"), project_config.paths.data_root, project_config.dataset.val.ann_file)
     _patch_evaluator(cfg.get("test_evaluator"), project_config.paths.data_root, project_config.dataset.test.ann_file)
+    if project_config.mmdet.disable_pretrained:
+        _disable_pretrained_init(cfg.get("model"))
     _patch_num_classes(cfg.get("model"), len(project_config.dataset.classes))
     _configure_hooks(cfg, project_config, run_dirs)
     _configure_visualizer(cfg, run_dirs)

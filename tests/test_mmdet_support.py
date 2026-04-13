@@ -74,6 +74,92 @@ output_subdir = "inference"
 
 
 class MMDetSupportTests(unittest.TestCase):
+    def test_build_runtime_config_disables_validation_components_together(self) -> None:
+        from magicnet_2d.config import load_project_config
+        from magicnet_2d.mmdet_support import build_runtime_config
+
+        class DummyConfig(dict):
+            @classmethod
+            def fromfile(cls, _: str) -> "DummyConfig":
+                return cls(
+                    train_cfg={"max_epochs": 12, "val_interval": 1},
+                    train_dataloader={"dataset": {"type": "CocoDataset", "ann_file": "train.json", "data_prefix": {}}},
+                    val_dataloader={"dataset": {"type": "CocoDataset", "ann_file": "val.json", "data_prefix": {}}},
+                    test_dataloader={"dataset": {"type": "CocoDataset", "ann_file": "test.json", "data_prefix": {}}},
+                    val_evaluator={"ann_file": "val.json"},
+                    test_evaluator={"ann_file": "test.json"},
+                    model={"bbox_head": {"num_classes": 80}},
+                    default_hooks={},
+                    visualizer={},
+                )
+
+            def __getattr__(self, name: str):
+                try:
+                    return self[name]
+                except KeyError as exc:
+                    raise AttributeError(name) from exc
+
+            def __setattr__(self, name: str, value) -> None:
+                self[name] = value
+
+        project_config = load_project_config(ROOT / "configs/project/yolov3_d53_tvdd_mmdet.toml")
+
+        with patch("magicnet_2d.mmdet_support.resolve_mmdet_config", return_value=ROOT / "dummy.py"):
+            with patch("magicnet_2d.mmdet_support._require_mmdet_training_runtime", return_value=(DummyConfig, object())):
+                with patch("magicnet_2d.mmdet_support._register_local_mmdet_modules"):
+                    with patch("magicnet_2d.mmdet_support._prepare_mmdet_environment"):
+                        cfg, _, _ = build_runtime_config(project_config)
+
+        self.assertIsNone(cfg.val_dataloader)
+        self.assertIsNone(cfg.val_cfg)
+        self.assertIsNone(cfg.val_evaluator)
+        self.assertIsNotNone(cfg.test_dataloader)
+        self.assertEqual(cfg.train_dataloader["num_workers"], 0)
+        self.assertFalse(cfg.train_dataloader["persistent_workers"])
+
+    def test_build_runtime_config_can_disable_pretrained_init(self) -> None:
+        from magicnet_2d.config import load_project_config
+        from magicnet_2d.mmdet_support import build_runtime_config
+
+        class DummyConfig(dict):
+            @classmethod
+            def fromfile(cls, _: str) -> "DummyConfig":
+                return cls(
+                    train_cfg={"max_epochs": 12},
+                    train_dataloader={"dataset": {"type": "CocoDataset", "ann_file": "train.json", "data_prefix": {}}},
+                    val_dataloader={"dataset": {"type": "CocoDataset", "ann_file": "val.json", "data_prefix": {}}},
+                    test_dataloader={"dataset": {"type": "CocoDataset", "ann_file": "test.json", "data_prefix": {}}},
+                    val_evaluator={"ann_file": "val.json"},
+                    test_evaluator={"ann_file": "test.json"},
+                    model={
+                        "backbone": {"init_cfg": {"type": "Pretrained", "checkpoint": "open-mmlab://darknet53"}},
+                        "neck": {"pretrained": "torchvision://resnet50"},
+                        "bbox_head": {"num_classes": 80},
+                    },
+                    default_hooks={},
+                    visualizer={},
+                )
+
+            def __getattr__(self, name: str):
+                try:
+                    return self[name]
+                except KeyError as exc:
+                    raise AttributeError(name) from exc
+
+            def __setattr__(self, name: str, value) -> None:
+                self[name] = value
+
+        project_config = load_project_config(ROOT / "configs/project/yolov3_d53_tvdd_mmdet.toml")
+
+        with patch("magicnet_2d.mmdet_support.resolve_mmdet_config", return_value=ROOT / "dummy.py"):
+            with patch("magicnet_2d.mmdet_support._require_mmdet_training_runtime", return_value=(DummyConfig, object())):
+                with patch("magicnet_2d.mmdet_support._register_local_mmdet_modules"):
+                    with patch("magicnet_2d.mmdet_support._prepare_mmdet_environment"):
+                        cfg, _, _ = build_runtime_config(project_config)
+
+        self.assertIsNone(cfg.model["backbone"]["init_cfg"])
+        self.assertIsNone(cfg.model["neck"]["pretrained"])
+
     def test_missing_runtime_message_mentions_uv_run_and_mmdet_config_refs(self) -> None:
         def fake_find_spec(name: str) -> object | None:
             if name == "mmengine":

@@ -29,6 +29,7 @@ class PathConfig:
 class MMDetConfig:
     config_ref: str
     checkpoint: Path | None
+    disable_pretrained: bool
 
 
 @dataclass(frozen=True)
@@ -58,6 +59,7 @@ class TrainSettings:
     validate: bool
     amp: bool
     max_epochs: int | None
+    num_workers: int | None
     checkpoint_interval: int
     max_keep_checkpoints: int
     logger_interval: int
@@ -166,6 +168,7 @@ def load_project_config(config_path: str | Path) -> ProjectConfig:
             if (checkpoint := _as_optional_string(mmdet_raw.get("checkpoint"), "mmdet.checkpoint"))
             else None
         ),
+        disable_pretrained=bool(mmdet_raw.get("disable_pretrained", False)),
     )
     dataset = DatasetConfig(
         dataset_type=_as_string(dataset_raw.get("type"), "dataset.type"),
@@ -179,6 +182,7 @@ def load_project_config(config_path: str | Path) -> ProjectConfig:
         validate=bool(train_raw.get("validate", True)),
         amp=bool(train_raw.get("amp", False)),
         max_epochs=int(train_raw["max_epochs"]) if train_raw.get("max_epochs") is not None else None,
+        num_workers=int(train_raw["num_workers"]) if train_raw.get("num_workers") is not None else None,
         checkpoint_interval=int(train_raw.get("checkpoint_interval", 1)),
         max_keep_checkpoints=int(train_raw.get("max_keep_checkpoints", 3)),
         logger_interval=int(train_raw.get("logger_interval", 50)),
