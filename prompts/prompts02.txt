@@ -61,3 +61,12 @@
 - инференса на одном изображении.
 5. Если есть важные допущения или ограничения, явно перечисли их.
 6. Не давай только советы — выполни практическую интеграцию датасета в проект.
+
+
+uv run python scripts/infer.py \
+  --config configs/project/yolov3_d53_tvdd_mmdet.toml \
+  --input data/tvdd/images/train/bdd_1dea280f-7a3a5728_crop1_crop0.jpg \
+  --checkpoint checkpoints/yolov3_d53_tvdd_mmdet/yolov3_d53_tvdd_mmdet/epoch_35.pth \
+  --device cpu \
+  --score-thr 0.3 \
+  --output-dir outputs/yolov3_one_image

@@ -65,7 +65,6 @@ seed = 42
 validate = false
 amp = false
 max_epochs = 100
-num_workers = 0
 checkpoint_interval = 5
 max_keep_checkpoints = 3
 logger_interval = 50
