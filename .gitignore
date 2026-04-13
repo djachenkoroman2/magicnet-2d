@@ -7,16 +7,7 @@ build/
 dist/
 *.egg-info/
 
-data/*
-!data/.gitkeep
-!data/README.md
-!data/yolo/
-data/yolo/*
-!data/yolo/coco8_ultralytics/
-data/yolo/coco8_ultralytics/**
-!data/yolo/coco8_ultralytics/README.md
-!data/yolo/coco8_ultralytics/LICENSE
-!data/yolo/coco8_ultralytics/.source.json
+data/
 
 checkpoints/*
 !checkpoints/.gitkeep

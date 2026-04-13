@@ -1,0 +1,25 @@
+# Default Ultralytics YOLO training config for the local TVDD dataset.
+model: yolov8n.pt
+data: configs/yolo/tvdd_ultralytics.yaml
+epochs: 100
+imgsz: 640
+batch: 16
+project: log/yolo
+name: tvdd_yolov8n
+exist_ok: true
+pretrained: true
+seed: 42
+patience: 20
+save: true
+plots: true
+close_mosaic: 10
+cos_lr: true
+degrees: 5.0
+translate: 0.05
+scale: 0.2
+fliplr: 0.5
+workers: 8
+notes: |
+  Tuned for the local TVDD dataset with 5,254 train images and 1,470 validation images.
+  Starts from pretrained YOLOv8n weights for faster convergence on the 23 traffic-related classes.
+  If you need a fully offline run, replace `yolov8n.pt` with `yolov8n.yaml` and set `pretrained: false`.
