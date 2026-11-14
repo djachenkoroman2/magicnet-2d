@@ -46,6 +46,7 @@ class ConfigTests(unittest.TestCase):
             config.dataset.val.image_root(config.paths.data_root),
             ROOT / "data/coco/val2014",
         )
+        self.assertIsNone(config.dataset.class_id_map)
 
     def test_yolov3_tvdd_mmdet_config_loads(self) -> None:
         config = load_project_config(ROOT / "configs/project/yolov3_d53_tvdd_mmdet.toml")
@@ -54,7 +55,8 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(config.mmdet.config_ref, "mmdet::yolo/yolov3_d53_8xb8-ms-608-273e_coco.py")
         self.assertEqual(config.dataset.dataset_type, "YOLOTxtDataset")
         self.assertTrue(config.mmdet.disable_pretrained)
-        self.assertEqual(config.train.num_workers, 0)
+        self.assertIsNone(config.train.num_workers)
+        self.assertIsNone(config.dataset.class_id_map)
         self.assertEqual(len(config.dataset.classes), 23)
         self.assertEqual(
             config.dataset.train.ann_path(config.paths.data_root),
@@ -63,6 +65,28 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(
             config.dataset.train.image_root(config.paths.data_root),
             ROOT / "data/tvdd/images/train",
+        )
+
+    def test_yolov3_energy_obj_mmdet_config_loads(self) -> None:
+        config = load_project_config(ROOT / "configs/project/yolov3_d53_energy_obj_mmdet.toml")
+
+        self.assertEqual(config.project.run_name, "yolov3_d53_energy_obj_mmdet")
+        self.assertEqual(config.mmdet.config_ref, "mmdet::yolo/yolov3_d53_8xb8-ms-608-273e_coco.py")
+        self.assertEqual(config.dataset.dataset_type, "YOLOTxtDataset")
+        self.assertTrue(config.mmdet.disable_pretrained)
+        self.assertIsNone(config.dataset.class_id_map)
+        self.assertEqual(config.train.num_workers, 0)
+        self.assertEqual(
+            config.dataset.classes,
+            ("substation", "supports 0,4", "supports 10", "supports 35", "transformer"),
+        )
+        self.assertEqual(
+            config.dataset.train.ann_path(config.paths.data_root),
+            ROOT / "data/energy_obj/labels/train",
+        )
+        self.assertEqual(
+            config.dataset.test.image_root(config.paths.data_root),
+            ROOT / "data/energy_obj/images/test",
         )
 
 

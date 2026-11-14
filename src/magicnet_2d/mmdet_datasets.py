@@ -24,9 +24,22 @@ class YOLOTxtDataset(BaseDetDataset):
 
     IMG_SUFFIXES = {".bmp", ".jpeg", ".jpg", ".png", ".webp"}
 
+    def __init__(self, *args, class_id_map: list[int] | None = None, **kwargs) -> None:
+        self.class_id_map = tuple(class_id_map) if class_id_map is not None else None
+        self.source_to_target: dict[int, int] | None = None
+        super().__init__(*args, **kwargs)
+
     def load_data_list(self) -> List[dict]:
         classes = self._metainfo.get("classes")
         assert classes is not None, "`classes` in `YOLOTxtDataset` can not be None."
+        if self.class_id_map is not None:
+            if len(self.class_id_map) != len(classes):
+                raise ValueError("`class_id_map` length must match the number of classes.")
+            self.source_to_target = {source_id: target_id for target_id, source_id in enumerate(self.class_id_map)}
+            if len(self.source_to_target) != len(self.class_id_map):
+                raise ValueError("`class_id_map` must not contain duplicate source ids.")
+        else:
+            self.source_to_target = None
 
         image_root = Path(self.data_prefix["img"])
         label_root = Path(self.ann_file)
@@ -82,7 +95,13 @@ class YOLOTxtDataset(BaseDetDataset):
                 if len(parts) != 5:
                     raise ValueError(f"Invalid YOLO annotation at {label_path}:{line_number}: {raw_line!r}")
 
-                class_id = int(float(parts[0]))
+                source_class_id = int(float(parts[0]))
+                if self.source_to_target is None:
+                    class_id = source_class_id
+                else:
+                    if source_class_id not in self.source_to_target:
+                        raise ValueError(f"Unknown source class id {source_class_id} at {label_path}:{line_number}")
+                    class_id = self.source_to_target[source_class_id]
                 if class_id < 0 or class_id >= len(self._metainfo["classes"]):
                     raise ValueError(f"Unknown class id {class_id} at {label_path}:{line_number}")
 

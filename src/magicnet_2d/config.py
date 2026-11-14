@@ -48,6 +48,7 @@ class DatasetSplitConfig:
 class DatasetConfig:
     dataset_type: str
     classes: tuple[str, ...]
+    class_id_map: tuple[int, ...] | None
     train: DatasetSplitConfig
     val: DatasetSplitConfig
     test: DatasetSplitConfig
@@ -59,6 +60,8 @@ class TrainSettings:
     validate: bool
     amp: bool
     max_epochs: int | None
+    val_interval: int | None
+    batch_size: int | None
     num_workers: int | None
     checkpoint_interval: int
     max_keep_checkpoints: int
@@ -126,6 +129,19 @@ def _as_string_tuple(value: Any, label: str) -> tuple[str, ...]:
     return tuple(converted)
 
 
+def _as_optional_int_tuple(value: Any, label: str) -> tuple[int, ...] | None:
+    if value in (None, ""):
+        return None
+    if not isinstance(value, list) or not value:
+        raise ValueError(f"{label} must be a non-empty array of integers.")
+    converted: list[int] = []
+    for item in value:
+        if not isinstance(item, int):
+            raise ValueError(f"{label} must contain only integers.")
+        converted.append(item)
+    return tuple(converted)
+
+
 def _as_split(value: Any, label: str) -> DatasetSplitConfig:
     mapping = _as_mapping(value, label)
     return DatasetSplitConfig(
@@ -173,6 +189,7 @@ def load_project_config(config_path: str | Path) -> ProjectConfig:
     dataset = DatasetConfig(
         dataset_type=_as_string(dataset_raw.get("type"), "dataset.type"),
         classes=_as_string_tuple(dataset_raw.get("classes"), "dataset.classes"),
+        class_id_map=_as_optional_int_tuple(dataset_raw.get("class_id_map"), "dataset.class_id_map"),
         train=_as_split(dataset_raw.get("train"), "dataset.train"),
         val=_as_split(dataset_raw.get("val"), "dataset.val"),
         test=_as_split(dataset_raw.get("test"), "dataset.test"),
@@ -182,6 +199,8 @@ def load_project_config(config_path: str | Path) -> ProjectConfig:
         validate=bool(train_raw.get("validate", True)),
         amp=bool(train_raw.get("amp", False)),
         max_epochs=int(train_raw["max_epochs"]) if train_raw.get("max_epochs") is not None else None,
+        val_interval=int(train_raw["val_interval"]) if train_raw.get("val_interval") is not None else None,
+        batch_size=int(train_raw["batch_size"]) if train_raw.get("batch_size") is not None else None,
         num_workers=int(train_raw["num_workers"]) if train_raw.get("num_workers") is not None else None,
         checkpoint_interval=int(train_raw.get("checkpoint_interval", 1)),
         max_keep_checkpoints=int(train_raw.get("max_keep_checkpoints", 3)),

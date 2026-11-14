@@ -69,6 +69,21 @@ CUDA_12_1_PROFILE = RuntimeProfile(
     pytorch_index_url="https://download.pytorch.org/whl/cu121",
 )
 
+CUDA_13_2_PROFILE = RuntimeProfile(
+    name="cu132",
+    python_version="3.10",
+    torch_version="2.12.0",
+    torchvision_version="0.27.0",
+    mmengine_version="0.10.7",
+    mmcv_package="mmcv",
+    mmcv_version="2.2.0",
+    mmdet_version="3.3.0",
+    tensorboard_version="2.16.2",
+    cuda_version="13.2",
+    cudnn_version="9.0+",
+    pytorch_index_url="https://download.pytorch.org/whl/cu132",
+)
+
 
 def _version_tuple(value: str | None) -> tuple[int, ...]:
     if not value:
@@ -116,6 +131,12 @@ def recommend_runtime_profile(
         return RuntimeRecommendation(CPU_PROFILE, tuple(reasons), tuple(warnings))
 
     visible_cuda = driver_cuda_version or nvcc_version
+
+    if _version_at_least(driver_version, (570, 0)) and (
+        _version_at_least(visible_cuda, (13, 2)) or not visible_cuda
+    ):
+        reasons.append("Driver and CUDA capability are compatible with the CUDA 13.2 profile.")
+        return RuntimeRecommendation(CUDA_13_2_PROFILE, tuple(reasons), tuple(warnings))
 
     if _version_at_least(driver_version, (530, 30)) and (
         _version_at_least(visible_cuda, (12, 1)) or not visible_cuda

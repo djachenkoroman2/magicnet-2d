@@ -13,6 +13,7 @@ from .compatibility import (
     CPU_PROFILE,
     CUDA_11_8_PROFILE,
     CUDA_12_1_PROFILE,
+    CUDA_13_2_PROFILE,
     RuntimeProfile,
     RuntimeRecommendation,
     recommend_runtime_profile,
@@ -133,6 +134,7 @@ def select_profile(snapshot: EnvironmentSnapshot, requested_profile: str) -> Run
         "cpu": CPU_PROFILE,
         "cu118": CUDA_11_8_PROFILE,
         "cu121": CUDA_12_1_PROFILE,
+        "cu132": CUDA_13_2_PROFILE,
     }
     profile = forced_profiles[requested_profile]
     return RuntimeRecommendation(
@@ -205,6 +207,19 @@ def build_install_plan(snapshot: EnvironmentSnapshot, recommendation: RuntimeRec
             command=("uv", "run", "mim", "install", f"mmcv=={profile.mmcv_version}"),
         )
     )
+
+    if profile.name.startswith("cu13"):
+        steps.append(
+            InstallStep(
+                description=(
+                    "Pre-built mmcv wheels for CUDA 13.x may not be available yet. "
+                    "The `mim install mmcv` step will attempt to find a pre-built wheel; "
+                    "if none exists, it will compile from source (requires CUDA toolkit, which is detected)."
+                ),
+                command=None,
+                manual=True,
+            )
+        )
 
     if not snapshot.has_nvidia_gpu:
         steps.append(
@@ -305,7 +320,7 @@ def configure_parser(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--profile",
         default="auto",
-        choices=("auto", "cpu", "cu118", "cu121"),
+        choices=("auto", "cpu", "cu118", "cu121", "cu132"),
         help="Override the automatically selected compatibility profile.",
     )
     parser.add_argument(

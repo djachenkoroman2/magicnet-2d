@@ -4,6 +4,7 @@ import argparse
 import inspect
 import json
 from pathlib import Path
+import time
 from typing import Sequence
 
 from .config import load_project_config, override_config
@@ -22,6 +23,54 @@ def _resolve_checkpoint(config_checkpoint: Path | None, cli_checkpoint: str | No
     if not checkpoint.exists():
         raise FileNotFoundError(f"Checkpoint does not exist: {checkpoint}")
     return checkpoint
+
+
+def _summarize_visualization(value: object) -> object:
+    if isinstance(value, (list, tuple)):
+        return [_summarize_visualization(item) for item in value]
+
+    shape = getattr(value, "shape", None)
+    if shape is not None:
+        dtype = getattr(value, "dtype", None)
+        return {
+            "type": type(value).__name__,
+            "shape": [int(dimension) for dimension in shape],
+            "dtype": str(dtype) if dtype is not None else None,
+        }
+
+    return to_serializable(value)
+
+
+def _summarize_inferencer_results(results: object) -> object:
+    if not isinstance(results, dict):
+        return to_serializable(results)
+
+    summary: dict[str, object] = {}
+    for key, value in results.items():
+        if key == "visualization":
+            summary[key] = _summarize_visualization(value)
+        else:
+            summary[key] = to_serializable(value)
+    return summary
+
+
+def _batched(items: Sequence[Path], batch_size: int) -> list[list[Path]]:
+    return [list(items[index : index + batch_size]) for index in range(0, len(items), batch_size)]
+
+
+def _merge_inferencer_summaries(summaries: Sequence[object]) -> object:
+    merged: dict[str, list[object]] = {}
+    for summary in summaries:
+        if not isinstance(summary, dict):
+            merged.setdefault("items", []).append(summary)
+            continue
+
+        for key, value in summary.items():
+            if isinstance(value, list):
+                merged.setdefault(key, []).extend(value)
+            else:
+                merged.setdefault(key, []).append(value)
+    return merged
 
 
 def configure_parser(parser: argparse.ArgumentParser) -> None:
@@ -107,13 +156,29 @@ def run_from_args(args: argparse.Namespace) -> int:
     if "out_dir" in call_signature.parameters:
         call_kwargs["out_dir"] = str(output_dir)
     if "batch_size" in call_signature.parameters:
-        call_kwargs["batch_size"] = project_config.inference.batch_size
+        call_kwargs["batch_size"] = max(1, project_config.inference.batch_size)
     if "no_save_pred" in call_signature.parameters:
         call_kwargs["no_save_pred"] = False
     if "no_save_vis" in call_signature.parameters:
         call_kwargs["no_save_vis"] = False
 
-    results = inferencer([str(item) for item in input_items], **call_kwargs)
+    result_summaries: list[object] = []
+    input_batches = _batched(input_items, max(1, project_config.inference.batch_size))
+    started_at = time.perf_counter()
+    for batch_index, input_batch in enumerate(input_batches, start=1):
+        print(f"Running inference batch {batch_index}/{len(input_batches)} ({len(input_batch)} item(s)).")
+        results = inferencer([str(item) for item in input_batch], **call_kwargs)
+        result_summaries.append(_summarize_inferencer_results(results))
+    elapsed_seconds = time.perf_counter() - started_at
+    image_count = len(input_items)
+    speed_metrics = {
+        "elapsed_seconds": elapsed_seconds,
+        "images_per_second": image_count / elapsed_seconds if elapsed_seconds > 0 else 0.0,
+        "latency_seconds_per_image": elapsed_seconds / image_count if image_count else 0.0,
+        "batch_size": max(1, project_config.inference.batch_size),
+        "device": choose_device(project_config.inference.device),
+    }
+
     summary_path = output_dir / "predictions.json"
     summary_path.write_text(
         json.dumps(
@@ -122,7 +187,8 @@ def run_from_args(args: argparse.Namespace) -> int:
                 "checkpoint": str(checkpoint_path),
                 "device": choose_device(project_config.inference.device),
                 "inputs": [str(item) for item in input_items],
-                "results": to_serializable(results),
+                "speed": speed_metrics,
+                "results": _merge_inferencer_summaries(result_summaries),
             },
             indent=2,
             ensure_ascii=False,
@@ -134,6 +200,11 @@ def run_from_args(args: argparse.Namespace) -> int:
     print(f"Resolved config: {resolved_config_path}")
     print(f"Predictions summary: {summary_path}")
     print(f"Artifacts directory: {output_dir}")
+    print(
+        "Inference speed: "
+        f"{speed_metrics['images_per_second']:.3f} images/s, "
+        f"{speed_metrics['latency_seconds_per_image']:.3f} s/image."
+    )
     return 0
 
 

@@ -1,0 +1,56 @@
+# Continue YOLOv3 energy_obj training from epoch_400 to epoch_800.
+# This uses a separate run_name so previous checkpoints remain intact.
+
+[project]
+name = "magicnet-2d"
+run_name = "yolov3_d53_energy_obj_mmdet_e400_to_e800"
+
+[paths]
+data_root = "data/energy_obj"
+log_root = "log"
+checkpoint_root = "checkpoints"
+output_root = "outputs"
+
+[mmdet]
+config = "mmdet::yolo/yolov3_d53_8xb8-ms-608-273e_coco.py"
+checkpoint = ""
+disable_pretrained = true
+
+[dataset]
+type = "YOLOTxtDataset"
+classes = [
+  "substation",
+  "supports 0,4",
+  "supports 10",
+  "supports 35",
+  "transformer",
+]
+
+[dataset.train]
+ann_file = "labels/train"
+img_prefix = "images/train"
+
+[dataset.val]
+ann_file = "labels/val"
+img_prefix = "images/val"
+
+[dataset.test]
+ann_file = "labels/test"
+img_prefix = "images/test"
+
+[train]
+seed = 42
+validate = false
+amp = false
+max_epochs = 800
+num_workers = 0
+checkpoint_interval = 20
+max_keep_checkpoints = 5
+logger_interval = 50
+resume = "checkpoints/yolov3_d53_energy_obj_mmdet_e200_to_e400/yolov3_d53_energy_obj_mmdet_e200_to_e400/epoch_400.pth"
+
+[inference]
+device = "auto"
+score_threshold = 0.3
+batch_size = 1
+output_subdir = "inference"

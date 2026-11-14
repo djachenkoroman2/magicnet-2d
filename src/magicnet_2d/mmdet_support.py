@@ -71,8 +71,9 @@ def _require_mmdet_training_runtime(config_ref: str | None = None) -> tuple[Any,
 
 
 def _register_local_mmdet_modules() -> None:
-    # Import custom project datasets so they are available in MMDetection's registry.
+    # Import custom project components so they are available in MMDetection registries.
     from . import mmdet_datasets  # noqa: F401
+    from . import detection_metrics  # noqa: F401
 
 
 def _prepare_mmdet_environment(project_root: Path) -> None:
@@ -142,6 +143,8 @@ def _patch_dataset_nodes(dataset_node: Any, config: ProjectConfig, split_name: s
             node["ann_file"] = split.ann_file
             node["data_prefix"] = {"img": split.img_prefix}
             node["metainfo"] = {"classes": classes}
+            if config.dataset.class_id_map is not None:
+                node["class_id_map"] = list(config.dataset.class_id_map)
 
 
 def _patch_evaluator(evaluator_node: Any, data_root: Path, ann_file: str) -> None:
@@ -173,6 +176,41 @@ def _patch_dataloader_workers(dataloader_node: Any, num_workers: int | None) -> 
     dataloader_node["num_workers"] = num_workers
     if num_workers == 0:
         dataloader_node["persistent_workers"] = False
+
+
+def _patch_dataloader_batch_size(dataloader_node: Any, batch_size: int | None) -> None:
+    if not isinstance(dataloader_node, dict) or batch_size is None:
+        return
+    if batch_size < 1:
+        raise ValueError("train.batch_size must be a positive integer.")
+    dataloader_node["batch_size"] = batch_size
+
+
+def _configure_validation_schedule(cfg: Any, config: ProjectConfig) -> None:
+    if config.train.val_interval is None:
+        return
+    train_cfg = dict(cfg.get("train_cfg", {}))
+    train_cfg["val_interval"] = config.train.val_interval
+    cfg.train_cfg = train_cfg
+
+
+def _yolo_txt_metric_config(config: ProjectConfig, split_name: str) -> dict[str, Any]:
+    return {
+        "type": "YOLOTxtMetric",
+        "class_names": list(config.dataset.classes),
+        "score_thr": config.inference.score_threshold,
+        "iou_thrs": [0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95],
+        "artifact_dir": str(config.paths.output_root / "evaluation" / config.project.run_name / split_name),
+    }
+
+
+def _configure_yolo_txt_evaluators(cfg: Any, config: ProjectConfig) -> None:
+    if config.dataset.dataset_type != "YOLOTxtDataset":
+        return
+    if cfg.get("val_dataloader") is not None:
+        cfg.val_evaluator = _yolo_txt_metric_config(config, "val")
+    if cfg.get("test_dataloader") is not None:
+        cfg.test_evaluator = _yolo_txt_metric_config(config, "test")
 
 
 def _configure_hooks(cfg: Any, config: ProjectConfig, run_dirs: RunDirectories) -> None:
@@ -235,6 +273,7 @@ def build_runtime_config(
         train_cfg = dict(cfg.get("train_cfg", {}))
         train_cfg["max_epochs"] = project_config.train.max_epochs
         cfg.train_cfg = train_cfg
+    _configure_validation_schedule(cfg, project_config)
 
     if not project_config.train.validate:
         cfg.val_dataloader = None
@@ -250,11 +289,13 @@ def build_runtime_config(
     _patch_dataset_nodes(cfg.get("train_dataloader"), project_config, "train")
     _patch_dataset_nodes(cfg.get("val_dataloader"), project_config, "val")
     _patch_dataset_nodes(cfg.get("test_dataloader"), project_config, "test")
+    _patch_dataloader_batch_size(cfg.get("train_dataloader"), project_config.train.batch_size)
     _patch_dataloader_workers(cfg.get("train_dataloader"), project_config.train.num_workers)
     _patch_dataloader_workers(cfg.get("val_dataloader"), project_config.train.num_workers)
     _patch_dataloader_workers(cfg.get("test_dataloader"), project_config.train.num_workers)
     _patch_evaluator(cfg.get("val_evaluator"), project_config.paths.data_root, project_config.dataset.val.ann_file)
     _patch_evaluator(cfg.get("test_evaluator"), project_config.paths.data_root, project_config.dataset.test.ann_file)
+    _configure_yolo_txt_evaluators(cfg, project_config)
     if project_config.mmdet.disable_pretrained:
         _disable_pretrained_init(cfg.get("model"))
     _patch_num_classes(cfg.get("model"), len(project_config.dataset.classes))

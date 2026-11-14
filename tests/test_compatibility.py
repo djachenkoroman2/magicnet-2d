@@ -41,6 +41,26 @@ class CompatibilityTests(unittest.TestCase):
         )
         self.assertEqual(recommendation.profile.name, "cpu")
 
+    def test_cuda_132_profile_with_cuda_13_driver(self) -> None:
+        recommendation = recommend_runtime_profile(
+            os_name="Linux",
+            architecture="x86_64",
+            has_nvidia_gpu=True,
+            driver_version="595.71.05",
+            driver_cuda_version="13.2",
+        )
+        self.assertEqual(recommendation.profile.name, "cu132")
+
+    def test_cuda_121_fallback_when_driver_below_570(self) -> None:
+        recommendation = recommend_runtime_profile(
+            os_name="Linux",
+            architecture="x86_64",
+            has_nvidia_gpu=True,
+            driver_version="550.54.14",
+            driver_cuda_version="12.4",
+        )
+        self.assertEqual(recommendation.profile.name, "cu121")
+
 
 if __name__ == "__main__":
     unittest.main()
