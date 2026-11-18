@@ -20,6 +20,9 @@ disable_pretrained = false
 
 [dataset]
 type = "YOLOTxtDataset"
+# Keep the 10–20% background chips in training (mmdet YOLO configs otherwise
+# set filter_empty_gt=True and silently drop them from the train split).
+filter_empty_gt = false
 classes = [
   "substation",
   "supports 0,4",

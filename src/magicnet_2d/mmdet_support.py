@@ -145,6 +145,8 @@ def _patch_dataset_nodes(dataset_node: Any, config: ProjectConfig, split_name: s
             node["metainfo"] = {"classes": classes}
             if config.dataset.class_id_map is not None:
                 node["class_id_map"] = list(config.dataset.class_id_map)
+            if split_name == "train" and config.dataset.filter_empty_gt is not None:
+                node["filter_cfg"] = {"filter_empty_gt": config.dataset.filter_empty_gt}
 
 
 def _patch_evaluator(evaluator_node: Any, data_root: Path, ann_file: str) -> None:

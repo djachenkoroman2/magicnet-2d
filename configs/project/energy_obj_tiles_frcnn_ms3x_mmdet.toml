@@ -1,0 +1,67 @@
+# MMDetection config for the multiscale 3x Faster R-CNN run on the tiled energy_obj variant.
+# Base mmdet config faster-rcnn_r50_fpn_ms-3x_coco.py: multiscale train resize
+# [(1333,640)..(1333,800)], RepeatDataset(times=3) and a 12-outer-epoch schedule with
+# LR milestones [9, 11]. With our dataset patching the RepeatDataset wrapper survives,
+# so the run equals the native 3x regime: 36 effective epochs, LR anneal at ~27/33
+# effective epochs. max_epochs stays 12 (the NATIVE outer horizon) on purpose —
+# overriding it would break the milestone semantics.
+# COCO-pretrained ms-3x weights are loaded via mmdet.checkpoint.
+# Hypothesis and place in the experiment plan: doc/experiments.md.
+
+[project]
+name = "magicnet-2d"
+run_name = "energy_obj_tiles_frcnn_ms3x"
+
+[paths]
+data_root = "data/energy_obj_tiles"
+log_root = "log"
+checkpoint_root = "checkpoints"
+output_root = "outputs"
+
+[mmdet]
+config = "mmdet::faster_rcnn/faster-rcnn_r50_fpn_ms-3x_coco.py"
+checkpoint = "checkpoints/faster_rcnn_r50_fpn_mstrain_3x_coco_20210524_110822-e10bd31c.pth"
+disable_pretrained = false
+
+[dataset]
+type = "YOLOTxtDataset"
+# Keep the background chips in training; see doc/config_energy_obj_tiles.md.
+filter_empty_gt = false
+classes = [
+  "substation",
+  "supports 0,4",
+  "supports 10",
+  "supports 35",
+  "transformer",
+]
+
+[dataset.train]
+ann_file = "labels/train"
+img_prefix = "images/train"
+
+[dataset.val]
+ann_file = "labels/val"
+img_prefix = "images/val"
+
+[dataset.test]
+ann_file = "labels/test"
+img_prefix = "images/test"
+
+[train]
+seed = 42
+validate = true
+amp = false
+# Native outer horizon of the ms-3x schedule (12 x RepeatDataset(3) = 36 effective epochs).
+max_epochs = 12
+batch_size = 8
+num_workers = 8
+checkpoint_interval = 1
+max_keep_checkpoints = 3
+logger_interval = 50
+resume = ""
+
+[inference]
+device = "auto"
+score_threshold = 0.3
+batch_size = 1
+output_subdir = "inference"

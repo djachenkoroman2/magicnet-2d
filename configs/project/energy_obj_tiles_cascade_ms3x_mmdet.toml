@@ -1,0 +1,68 @@
+# MMDetection config for the Cascade R-CNN r50 FPN (ms-3x recipe) run on the tiled
+# energy_obj variant. Same training recipe as the current leader
+# (configs/project/energy_obj_tiles_frcnn_ms3x_mmdet.toml): multiscale 640-1333,
+# RepeatDataset(times=3), 12 outer epochs with LR milestones [9, 11]. Only the
+# detector differs (Cascade R-CNN, three IoU-staged bbox heads) — a controlled
+# architecture comparison; the mmdet config is the project wrapper
+# configs/mmdet/cascade-rcnn_r50_fpn_ms3x_energy.py.
+# COCO-pretrained cascade 1x weights via mmdet.checkpoint (no native ms-3x bbox
+# cascade weights exist in mmdet 3.3.0; heads re-initialize to 5 classes).
+# Plan: doc/experiments.md, priority 2.
+
+[project]
+name = "magicnet-2d"
+run_name = "energy_obj_tiles_cascade_ms3x"
+
+[paths]
+data_root = "data/energy_obj_tiles"
+log_root = "log"
+checkpoint_root = "checkpoints"
+output_root = "outputs"
+
+[mmdet]
+config = "configs/mmdet/cascade-rcnn_r50_fpn_ms3x_energy.py"
+checkpoint = "checkpoints/cascade_rcnn_r50_fpn_1x_coco_20200316-3dc56deb.pth"
+disable_pretrained = false
+
+[dataset]
+type = "YOLOTxtDataset"
+# Keep the background chips in training; see doc/config_energy_obj_tiles.md.
+filter_empty_gt = false
+classes = [
+  "substation",
+  "supports 0,4",
+  "supports 10",
+  "supports 35",
+  "transformer",
+]
+
+[dataset.train]
+ann_file = "labels/train"
+img_prefix = "images/train"
+
+[dataset.val]
+ann_file = "labels/val"
+img_prefix = "images/val"
+
+[dataset.test]
+ann_file = "labels/test"
+img_prefix = "images/test"
+
+[train]
+seed = 42
+validate = true
+amp = false
+# Native outer horizon of the ms-3x schedule (12 x RepeatDataset(3) = 36 effective epochs).
+max_epochs = 12
+batch_size = 8
+num_workers = 8
+checkpoint_interval = 1
+max_keep_checkpoints = 3
+logger_interval = 50
+resume = ""
+
+[inference]
+device = "auto"
+score_threshold = 0.3
+batch_size = 1
+output_subdir = "inference"

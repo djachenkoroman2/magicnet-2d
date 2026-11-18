@@ -52,6 +52,7 @@ class DatasetConfig:
     train: DatasetSplitConfig
     val: DatasetSplitConfig
     test: DatasetSplitConfig
+    filter_empty_gt: bool | None = None
 
 
 @dataclass(frozen=True)
@@ -150,6 +151,14 @@ def _as_split(value: Any, label: str) -> DatasetSplitConfig:
     )
 
 
+def _as_optional_bool(value: Any, label: str) -> bool | None:
+    if value is None:
+        return None
+    if not isinstance(value, bool):
+        raise ValueError(f"{label} must be a boolean, got {value!r}.")
+    return value
+
+
 def load_project_config(config_path: str | Path) -> ProjectConfig:
     config_path = Path(config_path).resolve()
     with config_path.open("rb") as handle:
@@ -193,6 +202,7 @@ def load_project_config(config_path: str | Path) -> ProjectConfig:
         train=_as_split(dataset_raw.get("train"), "dataset.train"),
         val=_as_split(dataset_raw.get("val"), "dataset.val"),
         test=_as_split(dataset_raw.get("test"), "dataset.test"),
+        filter_empty_gt=_as_optional_bool(dataset_raw.get("filter_empty_gt"), "dataset.filter_empty_gt"),
     )
     train = TrainSettings(
         seed=int(train_raw.get("seed", 42)),

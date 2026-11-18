@@ -131,5 +131,5 @@ uv run python scripts/prune_unlabeled.py
 
 ## Использование в обучении
 
-- MMDetection: `configs/project/yolov3_d53_energy_obj_mmdet.toml` (backbone YOLOv3-Darknet53, вход 608 px, `YOLOTxtDataset` со сплитами как выше). Продолжения обучения: `yolov3_d53_energy_obj_mmdet_e*_to_e*.toml`.
+- MMDetection: `configs/project/energy_obj_tiles_mmdet.toml` (backbone YOLOv3-Darknet53, вход 608 px, `YOLOTxtDataset`; обучение идёт на тайловом варианте `data/energy_obj_tiles`, см. [config_energy_obj_tiles.md](config_energy_obj_tiles.md)). Старые конфиги обучения на целых кадрах (`yolov3_d53_energy_obj_mmdet*.toml`) удалены из репозитория 2026-11-16 как неэффективные.
 - Тесты сборки: `tests/test_energy_dataset.py`.

@@ -144,7 +144,7 @@ class MMDetSupportTests(unittest.TestCase):
             def __setattr__(self, name: str, value) -> None:
                 self[name] = value
 
-        project_config = load_project_config(ROOT / "configs/project/yolov3_d53_energy_obj_mmdet.toml")
+        project_config = load_project_config(ROOT / "configs/project/energy_obj_tiles_mmdet.toml")
 
         with patch("magicnet_2d.mmdet_support.resolve_mmdet_config", return_value=ROOT / "dummy.py"):
             with patch("magicnet_2d.mmdet_support._require_mmdet_training_runtime", return_value=(DummyConfig, object())):
@@ -152,13 +152,11 @@ class MMDetSupportTests(unittest.TestCase):
                     with patch("magicnet_2d.mmdet_support._prepare_mmdet_environment"):
                         cfg, _, _ = build_runtime_config(project_config)
 
-        self.assertEqual(cfg.train_dataloader["num_workers"], 0)
-        self.assertFalse(cfg.train_dataloader["persistent_workers"])
-        self.assertIsNone(cfg.val_dataloader)
-        self.assertIsNone(cfg.val_cfg)
-        self.assertIsNone(cfg.val_evaluator)
-        self.assertEqual(cfg.test_dataloader["num_workers"], 0)
-        self.assertFalse(cfg.test_dataloader["persistent_workers"])
+        self.assertEqual(cfg.train_dataloader["num_workers"], 8)
+        self.assertNotIn("persistent_workers", cfg.train_dataloader)
+        self.assertIsNotNone(cfg.val_dataloader)
+        self.assertIsNotNone(cfg.val_evaluator)
+        self.assertEqual(cfg.test_dataloader["num_workers"], 8)
 
     def test_build_runtime_config_uses_yolo_txt_metric_when_validation_is_enabled(self) -> None:
         from magicnet_2d.config import load_project_config
@@ -188,7 +186,7 @@ class MMDetSupportTests(unittest.TestCase):
             def __setattr__(self, name: str, value) -> None:
                 self[name] = value
 
-        project_config = load_project_config(ROOT / "configs/project/yolov3_d53_energy_obj_mmdet.toml")
+        project_config = load_project_config(ROOT / "configs/project/energy_obj_tiles_mmdet.toml")
         project_config = replace(
             project_config,
             train=replace(project_config.train, validate=True, val_interval=20, batch_size=1),
@@ -205,7 +203,7 @@ class MMDetSupportTests(unittest.TestCase):
         self.assertEqual(cfg.train_dataloader["batch_size"], 1)
         self.assertEqual(cfg.val_evaluator["type"], "YOLOTxtMetric")
         self.assertEqual(cfg.val_evaluator["score_thr"], 0.2)
-        self.assertIn("outputs/evaluation/yolov3_d53_energy_obj_mmdet/val", cfg.val_evaluator["artifact_dir"])
+        self.assertIn("outputs/evaluation/energy_obj_tiles_mmdet/val", cfg.val_evaluator["artifact_dir"])
         self.assertEqual(cfg.test_evaluator["type"], "YOLOTxtMetric")
 
     def test_build_runtime_config_can_disable_pretrained_init(self) -> None:
@@ -250,6 +248,91 @@ class MMDetSupportTests(unittest.TestCase):
 
         self.assertIsNone(cfg.model["backbone"]["init_cfg"])
         self.assertIsNone(cfg.model["neck"]["pretrained"])
+
+    def test_build_runtime_config_applies_filter_empty_gt_to_train_dataset_only(self) -> None:
+        from dataclasses import replace
+
+        from magicnet_2d.config import load_project_config
+        from magicnet_2d.mmdet_support import build_runtime_config
+
+        class DummyConfig(dict):
+            @classmethod
+            def fromfile(cls, _: str) -> "DummyConfig":
+                return cls(
+                    train_cfg={"max_epochs": 12},
+                    train_dataloader={"dataset": {"type": "CocoDataset", "ann_file": "train.json", "data_prefix": {}}},
+                    val_dataloader={"dataset": {"type": "CocoDataset", "ann_file": "val.json", "data_prefix": {}}},
+                    test_dataloader={"dataset": {"type": "CocoDataset", "ann_file": "test.json", "data_prefix": {}}},
+                    val_evaluator={"ann_file": "val.json"},
+                    test_evaluator={"ann_file": "test.json"},
+                    model={"bbox_head": {"num_classes": 80}},
+                    default_hooks={},
+                    visualizer={},
+                )
+
+            def __getattr__(self, name: str):
+                try:
+                    return self[name]
+                except KeyError as exc:
+                    raise AttributeError(name) from exc
+
+            def __setattr__(self, name: str, value) -> None:
+                self[name] = value
+
+        base = load_project_config(ROOT / "configs/project/energy_obj_tiles_mmdet.toml")
+        project_config = replace(
+            base,
+            dataset=replace(base.dataset, filter_empty_gt=False),
+            train=replace(base.train, validate=True),
+        )
+
+        with patch("magicnet_2d.mmdet_support.resolve_mmdet_config", return_value=ROOT / "dummy.py"):
+            with patch("magicnet_2d.mmdet_support._require_mmdet_training_runtime", return_value=(DummyConfig, object())):
+                with patch("magicnet_2d.mmdet_support._register_local_mmdet_modules"):
+                    with patch("magicnet_2d.mmdet_support._prepare_mmdet_environment"):
+                        cfg, _, _ = build_runtime_config(project_config)
+
+        self.assertEqual(cfg.train_dataloader["dataset"]["filter_cfg"], {"filter_empty_gt": False})
+        self.assertNotIn("filter_cfg", cfg.val_dataloader["dataset"])
+        self.assertNotIn("filter_cfg", cfg.test_dataloader["dataset"])
+
+    def test_build_runtime_config_leaves_filter_cfg_untouched_by_default(self) -> None:
+        from magicnet_2d.config import load_project_config
+        from magicnet_2d.mmdet_support import build_runtime_config
+
+        class DummyConfig(dict):
+            @classmethod
+            def fromfile(cls, _: str) -> "DummyConfig":
+                return cls(
+                    train_cfg={"max_epochs": 12},
+                    train_dataloader={"dataset": {"type": "CocoDataset", "ann_file": "train.json", "data_prefix": {}}},
+                    val_dataloader={"dataset": {"type": "CocoDataset", "ann_file": "val.json", "data_prefix": {}}},
+                    test_dataloader={"dataset": {"type": "CocoDataset", "ann_file": "test.json", "data_prefix": {}}},
+                    val_evaluator={"ann_file": "val.json"},
+                    test_evaluator={"ann_file": "test.json"},
+                    model={"bbox_head": {"num_classes": 80}},
+                    default_hooks={},
+                    visualizer={},
+                )
+
+            def __getattr__(self, name: str):
+                try:
+                    return self[name]
+                except KeyError as exc:
+                    raise AttributeError(name) from exc
+
+            def __setattr__(self, name: str, value) -> None:
+                self[name] = value
+
+        project_config = load_project_config(ROOT / "configs/project/yolov3_d53_tvdd_mmdet.toml")
+
+        with patch("magicnet_2d.mmdet_support.resolve_mmdet_config", return_value=ROOT / "dummy.py"):
+            with patch("magicnet_2d.mmdet_support._require_mmdet_training_runtime", return_value=(DummyConfig, object())):
+                with patch("magicnet_2d.mmdet_support._register_local_mmdet_modules"):
+                    with patch("magicnet_2d.mmdet_support._prepare_mmdet_environment"):
+                        cfg, _, _ = build_runtime_config(project_config)
+
+        self.assertNotIn("filter_cfg", cfg.train_dataloader["dataset"])
 
     def test_missing_runtime_message_mentions_uv_run_and_mmdet_config_refs(self) -> None:
         def fake_find_spec(name: str) -> object | None:
