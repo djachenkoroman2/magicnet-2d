@@ -83,7 +83,8 @@ def _instances_to_dict(instances: Any, *, with_scores: bool) -> dict[str, Any]:
 def _class_counts(boxes) -> dict[int, int]:
     counts: dict[int, int] = defaultdict(int)
     for box in boxes:
-        counts[box.label] += 1
+        label = box.prediction.label if hasattr(box, "prediction") else box.label
+        counts[label] += 1
     return dict(counts)
 
 

@@ -1,0 +1,28 @@
+# Ultralytics YOLO11s training config for the tiled energy_obj dataset.
+# Modern single-stage anchor-free YOLO (successor of the YOLOv3 baseline already
+# tested via MMDetection). imgsz=1280 matches the native tile size (no resize),
+# which keeps the 50-165 px objects at full resolution — the same lever that
+# already helped the two-stage MMDetection detectors.
+model: yolo11s.pt
+data: configs/yolo/energy_obj_tiles_ultralytics.yaml
+epochs: 100
+imgsz: 1280
+batch: 8
+device: 0
+project: log/yolo
+name: energy_obj_tiles_yolo11s
+exist_ok: true
+pretrained: true
+seed: 42
+patience: 20
+save: true
+plots: true
+close_mosaic: 10
+cos_lr: true
+workers: 8
+notes: |
+  Modern-YOLO comparison for the tiled energy_obj dataset (train 7515 / val 1623,
+  16.3% background). YOLO11s from COCO-pretrained weights at native tile resolution
+  (imgsz=1280), mosaic on with close_mosaic in the last 10 epochs, cosine LR.
+  Metric: Ultralytics mAP@0.5 / mAP@0.5:0.95 (val), comparable to the custom
+  energy/mAP@0.5 reported by the MMDetection pipeline.

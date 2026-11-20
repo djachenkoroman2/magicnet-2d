@@ -1,0 +1,66 @@
+# MMDetection config for the RTMDet-s (anchor-free one-stage, CachedMosaic+MixUp+EMA)
+# run on the tiled energy_obj variant. RTMDet is the modern one-stage detector in
+# mmdet (YOLO-successor line) and uses the same YOLOTxtMetric as the two-stage
+# leaders, so mAP@0.5 is directly comparable. Input kept at 1280 native tile
+# resolution (see configs/mmdet/rtmdet_s_energy.py). COCO-pretrained rtmdet_s
+# weights via mmdet.checkpoint.
+# Plan: doc/experiments.md, "modern architectures" priority (reserve option).
+
+[project]
+name = "magicnet-2d"
+run_name = "energy_obj_tiles_rtmdet_s"
+
+[paths]
+data_root = "data/energy_obj_tiles"
+log_root = "log"
+checkpoint_root = "checkpoints"
+output_root = "outputs"
+
+[mmdet]
+config = "configs/mmdet/rtmdet_s_energy.py"
+checkpoint = "checkpoints/rtmdet_s_8xb32-300e_coco_20220905_161602-387a891e.pth"
+disable_pretrained = false
+
+[dataset]
+type = "YOLOTxtDataset"
+filter_empty_gt = false
+classes = [
+  "substation",
+  "supports 0,4",
+  "supports 10",
+  "supports 35",
+  "transformer",
+]
+
+[dataset.train]
+ann_file = "labels/train"
+img_prefix = "images/train"
+
+[dataset.val]
+ann_file = "labels/val"
+img_prefix = "images/val"
+
+[dataset.test]
+ann_file = "labels/test"
+img_prefix = "images/test"
+
+[train]
+seed = 42
+validate = true
+amp = false
+# Native RTMDet horizon (300 epochs, stage2 without mosaic at epoch 280).
+max_epochs = 300
+# 1280 input + CachedMosaic/MixUp is memory-heavy; batch 6 keeps RTMDet-s within
+# an RTX 4090 24GB (measured ~12 GiB at batch 8).
+batch_size = 6
+num_workers = 8
+checkpoint_interval = 10
+max_keep_checkpoints = 3
+logger_interval = 50
+resume = ""
+
+[inference]
+device = "auto"
+score_threshold = 0.3
+batch_size = 1
+output_subdir = "inference"

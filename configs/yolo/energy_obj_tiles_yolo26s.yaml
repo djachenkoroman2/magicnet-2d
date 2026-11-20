@@ -1,0 +1,26 @@
+# Ultralytics YOLO26s training config for the tiled energy_obj dataset.
+# YOLO26 is the newest Ultralytics detection family (end-to-end, reg_max=1 DFL).
+# Same recipe as the YOLO11s run — imgsz=1280 native tile resolution, mosaic with
+# close_mosaic in the last 10 epochs, cosine LR. Small (10M params) variant for a
+# fair comparison against yolo11s / yolo11m.
+model: yolo26s.pt
+data: configs/yolo/energy_obj_tiles_ultralytics.yaml
+epochs: 100
+imgsz: 1280
+batch: 8
+device: 0
+project: log/yolo
+name: energy_obj_tiles_yolo26s
+exist_ok: true
+pretrained: true
+seed: 42
+patience: 20
+save: true
+plots: true
+close_mosaic: 10
+cos_lr: true
+workers: 8
+notes: |
+  Newest-YOLO (YOLO26) comparison for the tiled energy_obj dataset, same recipe as
+  energy_obj_tiles_yolo11s.yaml. YOLO26 uses end-to-end detection (no NMS) and
+  reg_max=1 DFL bins. Metric: Ultralytics mAP@0.5 / mAP@0.5:0.95 (val).

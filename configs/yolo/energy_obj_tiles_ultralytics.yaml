@@ -1,0 +1,14 @@
+# Local Ultralytics dataset config for the tiled energy_obj dataset.
+# Same splits as the MMDetection pipeline (data/energy_obj_tiles):
+# train 7515 / val 1623 / test 1510 tiles, 16.3% background in train.
+# Class order matches configs/project/energy_obj_tiles_*.toml.
+path: ../../data/energy_obj_tiles
+train: images/train
+val: images/val
+test: images/test
+names:
+  0: substation
+  1: supports 0,4
+  2: supports 10
+  3: supports 35
+  4: transformer
